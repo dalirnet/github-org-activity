@@ -1,72 +1,53 @@
 import _ from "lodash";
-import dotenv from "dotenv";
-import superagent from "superagent";
+import orgRepository from "./fetch/orgRepository.js";
+import orgActivity from "./fetch/orgActivity.js";
 
-dotenv.config();
+let data = {};
+for (let repository of await orgRepository()) {
+  data = await orgActivity(repository, data);
+}
 
-const request = superagent
-  .agent()
-  .use((request) => {
-    return _.update(request, "url", (path) => "https://api.github.com/" + path);
-  })
-  .set(
-    "User-Agent",
-    "Github organization activity (https://github.com/dalirnet/github-org-activity)"
-  )
-  .auth(process.env.USER, process.env.PASS);
-
-// request("orgs/beeptory/repos/beeptory/icon/collaborators")
-const fetchCommits = (repo, keep = {}, page = 1) => {
-  return new Promise((resolve) => {
-    request
-      .get("repos/beeptory/" + repo + "/commits")
-      .query({ per_page: 100, page })
-      .then(async ({ body, links }) => {
-        console.info(
-          "fetch",
-          "commits",
-          "'" + repo + "'",
-          "page",
-          "'" + page + "'",
-          "done"
-        );
-        const data = _.reduce(
-          body,
-          (total, { commit }) => {
-            const date = _.replace(commit.author.date, /T.*/, "");
-            if (date) {
-              if (!_.has(total, date)) {
-                total[date] = [];
-              }
-              total[date].push({
-                author: commit.author.email,
-                message: commit.message,
-              });
-            }
-
-            return total;
-          },
-          keep
-        );
-        if (_.has(links, "last")) {
-          resolve(await fetchCommits(repo, data, ++page));
-        } else {
-          resolve(data);
-        }
-      })
-      .catch(({ message, response: { text = "!" } = {} }) => {
-        console.error(
-          "fetch",
-          "commits",
-          "'" + repo + "'",
-          "page",
-          "'" + page + "'",
-          message,
-          text
-        );
-        resolve(keep);
-      });
-  });
+let extract = {
+  members: {},
+  repositories: {},
+  commits: 0,
+  issues: 0,
 };
+let calendar = {};
+for (let day = 1; day <= 365; day++) {
+  const key = _.replace(new Date(Date.now() - 86400000 * day).toISOString(), /T.*/, "");
+  if (_.has(data, key)) {
+    _.set(calendar, key, data[key].length);
+    extract = _.reduce(
+      data[key],
+      (out, { type, repository, member }) => {
+        // update member
+        if (!_.has(out.members, member)) {
+          out.members[member] = 0;
+        }
+        out.members[member] += 1;
 
-console.log(await fetchCommits("icon"));
+        // update repository
+        if (!_.has(out.repositories, repository)) {
+          out.repositories[repository] = 0;
+        }
+        out.repositories[repository] += 1;
+
+        // update commits or issues
+        if (type == "commit") {
+          out.commits += 1;
+        } else if (type == "issue") {
+          out.issues += 1;
+        }
+
+        return out;
+      },
+      extract
+    );
+  } else {
+    _.set(calendar, key, 0);
+  }
+}
+
+console.log(extract);
+console.log(calendar);
