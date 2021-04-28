@@ -1,0 +1,15 @@
+{
+  "name": "github-org-activity",
+  "version": "1.0.0",
+  "description": "Github organization activity",
+  "repository": "https://github.com/dalirnet/github-org-activity.git",
+  "license": "MIT",
+  "author": "AmirRezaDalir <dalirnet@gmail.com>",
+  "type": "module",
+  "main": "index.js",
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "lodash": "^4.17.21",
+    "superagent": "^6.1.0"
+  }
+}
